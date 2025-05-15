@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\PayoutRequestController;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,3 +21,5 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::get('/users/{id}/summary', [UserController::class, 'summary']);
+Route::post('/users/{id}/payout', [UserController::class, 'payout']);
+Route::get('/payouts/requests', [PayoutRequestController::class, 'index']);

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
+use App\Rules\DoesNotExceedUserBalance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\Request;
 use App\Models\User;
+use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
@@ -18,7 +20,7 @@ class UserController extends Controller
             return response()->json(['error' => 'User not found.'], 404);
         }
 
-        $cachedSummary = Cache::remember("user_summary_{$id}", now()->addMinutes(2), function () use ($user) {
+        $cachedSummary = Cache::remember("user_{$id}_summary", now()->addMinutes(2), function () use ($user) {
             $earnedAmount = $user->transactions()->ofType(Transaction::TYPE_EARNED)->sum('amount');
             $spentAmount = $user->transactions()->ofType(Transaction::TYPE_SPENT)->sum('amount');
             $payoutRequested = $user->transactions()->byStatus(Transaction::STATUS_REQUESTED)->sum('amount');
@@ -43,5 +45,37 @@ class UserController extends Controller
         $summary['balance'] = $summary['earned'] - $summary['spent'] - $summary['payout_approved'];
 
         return response()->json(['data' => $summary]);
+    }
+
+    public function payout(int $id, Request $request): JsonResponse
+    {
+        $user = User::with('transactions')->find($id);
+
+        if (!$user) {
+            return response()->json(['error' => 'User not found.'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'amount' => ['required', 'numeric', 'gt:0', 'max:100', new DoesNotExceedUserBalance($user)],
+        ]);
+
+        if ($validator->fails()) {
+            $errors = $validator->errors();
+            return response()->json(['errors' => $errors], 422);
+        }
+
+        $validated = $validator->validated();
+
+        $transaction = $user->transactions()->create([
+            'type' => Transaction::TYPE_PAYOUT,
+            'amount' => $validated['amount'],
+        ]);
+
+        Cache::forget("user_{$id}_summary");
+
+        return response()->json([
+            'message' => 'Transaction created successfully',
+            'data' => $transaction,
+        ], 201);
     }
 }

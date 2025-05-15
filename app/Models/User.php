@@ -48,4 +48,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(Transaction::class);
     }
+
+    // TODO: caching
+    public function getTransactionsBalance()
+    {
+        $earnedAmount = $this->transactions()->ofType(Transaction::TYPE_EARNED)->sum('amount');
+        $spentAmount = $this->transactions()->ofType(Transaction::TYPE_SPENT)->sum('amount');
+        $approved = $this->transactions()->byStatus(Transaction::STATUS_APPROVED)->sum('amount');
+
+        return $earnedAmount - $spentAmount - $approved;
+    }
 }
