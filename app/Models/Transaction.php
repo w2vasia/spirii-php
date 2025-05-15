@@ -40,4 +40,9 @@ class Transaction extends Model
     {
         return $query->where('status', $status);
     }
+
+    public function approve()
+    {
+        $this->status = self::STATUS_APPROVED;
+    }
 }
